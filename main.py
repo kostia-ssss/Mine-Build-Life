@@ -1,15 +1,16 @@
 from ursina import *
 from ursina.prefabs.first_person_controller import FirstPersonController
-import math
 
 app = Ursina()
 
 Sky()
 
+start_time = time.time()
 WORLD_SIZE = (32, 1, 32)
 VIEW_SIZE = 5
 MAX_HP_NUM = 10
 BUILD_DIST = 5
+TPS = 50
 hp_count = MAX_HP_NUM
 hp = []
 tex = "textures/Grass.png"
@@ -71,14 +72,38 @@ def input(key):
             destroy_block()
     if key == "right mouse down":
         build_block()
+        
     if key == "1":
         tex = "textures/Grass.png"
+
     if key == "2":
         tex = "textures/Stone.png"
+
     if key == "3":
         tex = "textures/Brick.png"
 
+    if key == "4":
+        tex = "textures/Wood.png"
+
+    if key == "5":
+        tex = "textures/UnbreakableStone.png"
+    
+    if key == "f3":
+        ticsText.enabled = not ticsText.enabled
+
+ticsText = Text(
+    text=' ',
+    scale=2,
+    position=(-0.75, 0.4),
+    origin=(0, 0),
+    color=color.hex("#000000")
+)
+ticsText.enabled = False
+
 def update():
+    print(time.time()-start_time)
+    t = time.time()-start_time
+    ticsText.text = f"Tick №{round(t*TPS)}"
     render_blocks()
     if player.Y < -20:
         reset()
