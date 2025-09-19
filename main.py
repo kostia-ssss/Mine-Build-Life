@@ -3,7 +3,8 @@ from ursina.prefabs.first_person_controller import FirstPersonController
 
 app = Ursina()
 
-Sky()
+skybox_image = load_texture("textures/DaySky.png")
+sky = Sky(texture=skybox_image)
 
 start_time = time.time()
 WORLD_SIZE = (32, 1, 32)
@@ -14,6 +15,7 @@ TPS = 50
 hp_count = MAX_HP_NUM
 hp = []
 tex = "textures/Grass.png"
+tick = 0
 
 MAX_FOOD_NUM = 10
 food_count = MAX_FOOD_NUM
@@ -40,6 +42,12 @@ def render_blocks():
             block.enabled = False
         else:
             block.enabled = True
+
+def update_sky():
+    if tick%2000 <= 1000:
+        sky.texture = load_texture("textures/DaySky.png")
+    else:
+        sky.texture = load_texture("textures/NightSky.png")
 
 def destroy_block():
     hit_info = raycast(camera.world_position, camera.forward, distance=5)
@@ -101,10 +109,13 @@ ticsText = Text(
 ticsText.enabled = False
 
 def update():
+    global tick
     print(time.time()-start_time)
     t = time.time()-start_time
     ticsText.text = f"Tick №{round(t*TPS)}"
+    tick = round(t*TPS)
     render_blocks()
+    update_sky()
     if player.Y < -20:
         reset()
 
