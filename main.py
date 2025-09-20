@@ -6,24 +6,13 @@ app = Ursina()
 skybox_image = load_texture("textures/DaySky.png")
 sky = Sky(texture=skybox_image)
 
-start_time = time.time()
+start_time = 0
 WORLD_SIZE = (32, 1, 32)
-VIEW_SIZE = 5
-MAX_HP_NUM = 10
+VIEW_SIZE = 10
 BUILD_DIST = 5
 TPS = 50
-hp_count = MAX_HP_NUM
-hp = []
 tex = "textures/Grass.png"
 tick = 0
-
-MAX_FOOD_NUM = 10
-food_count = MAX_FOOD_NUM
-food = []
-
-def add_point_to_hp(tex, start_x):
-    posX = start_x-len(hp)/21
-    hp.append(Entity(parent=camera.ui, model="cube", scale=(0.04, 0.04, 0.04), texture=tex, position=(posX, 0.3, 0)))
 
 def generate():
     for x in range(WORLD_SIZE[0]):
@@ -59,12 +48,14 @@ def reset():
     player.position = (5, 5, 5)
 
 def close_menu():
+    global start_time
     mouse.locked = True
     start_btn.enabled = False
     menu_bg.enabled = False
     logo.enabled = False
     exit_btn.enabled = False
     player.gravity = 1
+    start_time = time.time()
 
 def input(key):
     global tex
@@ -118,12 +109,6 @@ def update():
     update_sky()
     if player.Y < -20:
         reset()
-
-# for i in range(MAX_HP_NUM):
-#     add_point_to_hp("textures/Heart.png", -0.1)
-
-# for i in range(MAX_HP_NUM):
-#     add_point_to_hp("textures/Food.png", 0.9)
 
 blocks = []
 
