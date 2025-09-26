@@ -7,7 +7,7 @@ skybox_image = load_texture("textures/DaySky.png")
 sky = Sky(texture=skybox_image)
 
 start_time = 0
-WORLD_SIZE = (10, 5, 10)
+WORLD_SIZE = (11, 7, 11)
 VIEW_SIZE = 10
 BUILD_DIST = 5
 TPS = 50
@@ -20,6 +20,8 @@ b_textures = {
     3: load_texture("textures/Brick.png"),
     4: load_texture("textures/Wood.png"),
     5: load_texture("textures/Ground.png"),
+    6: load_texture("textures/Andesite.png"),
+    7: load_texture("textures/Diorite.png"),
 }
 
 def generate():
@@ -28,9 +30,9 @@ def generate():
             for z in range(WORLD_SIZE[2]):
                 if y == 0:
                     blocks.append(Entity(model="cube", texture=b_textures[1], position=(x, -y, z), collider="box"))
-                elif y > 0 and y < 4:
+                elif y > 0 and y < 3:
                     blocks.append(Entity(model="cube", texture=b_textures[5], position=(x, -y, z), collider="box"))
-                elif y >= 4:
+                elif y >= 3:
                     blocks.append(Entity(model="cube", texture=b_textures[2], position=(x, -y, z), collider="box"))
 
 def build_block():
@@ -40,19 +42,12 @@ def build_block():
 
 def render_blocks():
     for block in blocks:
-        if distance(player, block) > VIEW_SIZE:
+        if block.position.y < player.y-2:
             block.enabled = False
+            block.collider = None
         else:
-            if player.rotation_y < 90 and player.rotation_y > -90:
-                if block.position.y < player.position.y:
-                    block.enabled = False
-                else:
-                    block.enabled = True
-            else:
-                if block.position.y < player.position.y:
-                    block.enabled = True
-                else:
-                    block.enabled = False
+            block.enabled = True
+            block.collider = "box"
 
 def update_sky():
     if tick%2000 <= 1000:
@@ -108,9 +103,16 @@ def input(key):
     
     if key == "5":
         tex = b_textures[5]
+        
+    if key == "6":
+        tex = b_textures[6]
+    
+    if key == "7":
+        tex = b_textures[7]
     
     if key == "f3":
         ticsText.enabled = not ticsText.enabled
+        posText.enabled = not posText.enabled
 
 ticsText = Text(
     text=' ',
@@ -119,12 +121,21 @@ ticsText = Text(
     origin=(0, 0),
     color=color.hex("#000000")
 )
+posText = Text(
+    text=' ',
+    scale=2,
+    position=(-0.675, 0.34),
+    origin=(0, 0),
+    color=color.hex("#000000")
+)
 ticsText.enabled = False
+posText.enabled = False
 
 def update():
     global tick
     t = time.time()-start_time
     ticsText.text = f"Tick №{round(t*TPS)}"
+    posText.text = f"POSITION: {player.X}, {player.Y}, {player.Z}"
     tick = round(t*TPS)
     # render_blocks()
     update_sky()
@@ -145,7 +156,7 @@ player.cursor.rotation_z = 0
 
 mouse.locked = False
 
-menu_bg = Entity(parent=camera.ui, model="cube", scale=(2, 1, 2), texture="textures/MenuBG.jfif")
+menu_bg = Entity(parent=camera.ui, model="cube", scale=(2, 1, 2), texture="textures/MenuBG.png")
 start_btn = Entity(parent=camera.ui, model="cube", scale=(0.2, 0.1, 0.2), texture="textures/PlayButton.png", collider="box")
 exit_btn = Entity(parent=camera.ui, model="cube", scale=(0.1, 0.05, 0.1), texture="textures/ExitButton.png", collider="box", position=(-0.6, -0.4, 0))
 logo = Entity(parent=camera.ui, model="cube", scale=(1.5, 0.2, 0.2), texture="textures/BuildAndLifeLogo.png", position=(0, 0.3, 0))
