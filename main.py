@@ -1,5 +1,6 @@
 from ursina import *
 from ursina.prefabs.first_person_controller import FirstPersonController
+from random import randint
 
 app = Ursina()
 
@@ -11,6 +12,7 @@ WORLD_SIZE = (11, 7, 11)
 VIEW_SIZE = 10
 BUILD_DIST = 5
 TPS = 50
+FLOWER_SPAWN_CHANCE = 5
 tex = "textures/Grass.png"
 tick = 0
 
@@ -22,9 +24,11 @@ b_textures = {
     5: load_texture("textures/Ground.png"),
     6: load_texture("textures/Andesite.png"),
     7: load_texture("textures/Diorite.png"),
+    8: load_texture("textures/YellowFlower.png"),
+    9: load_texture("textures/RedFlower.png"),
 }
 
-def generate():
+def generate_world():
     for x in range(WORLD_SIZE[0]):
         for y in range(WORLD_SIZE[1]):
             for z in range(WORLD_SIZE[2]):
@@ -34,6 +38,12 @@ def generate():
                     blocks.append(Entity(model="cube", texture=b_textures[5], position=(x, -y, z), collider="box"))
                 elif y >= 3:
                     blocks.append(Entity(model="cube", texture=b_textures[2], position=(x, -y, z), collider="box"))
+
+def generate_flowers():
+    for x in range(WORLD_SIZE[0]):
+        for z in range(WORLD_SIZE[2]):
+            if randint(1, 100) <= FLOWER_SPAWN_CHANCE:
+                blocks.append(Entity(model="cube", texture=b_textures[randint(8, 9)], position=(x, 1, z), scale=(1, 1, 0.001), collider="box"))
 
 def build_block():
     hit_info = raycast(camera.world_position, camera.forward, distance=5)
@@ -113,6 +123,9 @@ def input(key):
     if key == "f3":
         ticsText.enabled = not ticsText.enabled
         posText.enabled = not posText.enabled
+    
+    if key == "u":
+        mouse.locked = not mouse.locked
 
 ticsText = Text(
     text=' ',
@@ -144,7 +157,8 @@ def update():
 
 blocks = []
 
-generate()
+generate_world()
+generate_flowers()
 
 player = FirstPersonController()
 player.position = (5, 5, 5)
