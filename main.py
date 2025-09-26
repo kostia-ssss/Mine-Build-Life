@@ -7,18 +7,31 @@ skybox_image = load_texture("textures/DaySky.png")
 sky = Sky(texture=skybox_image)
 
 start_time = 0
-WORLD_SIZE = (32, 1, 32)
+WORLD_SIZE = (10, 5, 10)
 VIEW_SIZE = 10
 BUILD_DIST = 5
 TPS = 50
 tex = "textures/Grass.png"
 tick = 0
 
+b_textures = {
+    1: load_texture("textures/Grass.png"),
+    2: load_texture("textures/Stone.png"),
+    3: load_texture("textures/Brick.png"),
+    4: load_texture("textures/Wood.png"),
+    5: load_texture("textures/Ground.png"),
+}
+
 def generate():
     for x in range(WORLD_SIZE[0]):
         for y in range(WORLD_SIZE[1]):
             for z in range(WORLD_SIZE[2]):
-                blocks.append(Entity(model="cube", texture="textures/Grass.png", position=(x, y, z), collider="box"))
+                if y == 0:
+                    blocks.append(Entity(model="cube", texture=b_textures[1], position=(x, -y, z), collider="box"))
+                elif y > 0 and y < 4:
+                    blocks.append(Entity(model="cube", texture=b_textures[5], position=(x, -y, z), collider="box"))
+                elif y >= 4:
+                    blocks.append(Entity(model="cube", texture=b_textures[2], position=(x, -y, z), collider="box"))
 
 def build_block():
     hit_info = raycast(camera.world_position, camera.forward, distance=5)
@@ -30,7 +43,16 @@ def render_blocks():
         if distance(player, block) > VIEW_SIZE:
             block.enabled = False
         else:
-            block.enabled = True
+            if player.rotation_y < 90 and player.rotation_y > -90:
+                if block.position.y < player.position.y:
+                    block.enabled = False
+                else:
+                    block.enabled = True
+            else:
+                if block.position.y < player.position.y:
+                    block.enabled = True
+                else:
+                    block.enabled = False
 
 def update_sky():
     if tick%2000 <= 1000:
@@ -73,19 +95,19 @@ def input(key):
         build_block()
         
     if key == "1":
-        tex = "textures/Grass.png"
+        tex = b_textures[1]
 
     if key == "2":
-        tex = "textures/Stone.png"
+        tex = b_textures[2]
 
     if key == "3":
-        tex = "textures/Brick.png"
+        tex = b_textures[3]
 
     if key == "4":
-        tex = "textures/Wood.png"
-
+        tex = b_textures[4]
+    
     if key == "5":
-        tex = "textures/UnbreakableStone.png"
+        tex = b_textures[5]
     
     if key == "f3":
         ticsText.enabled = not ticsText.enabled
@@ -101,11 +123,10 @@ ticsText.enabled = False
 
 def update():
     global tick
-    print(time.time()-start_time)
     t = time.time()-start_time
     ticsText.text = f"Tick №{round(t*TPS)}"
     tick = round(t*TPS)
-    render_blocks()
+    # render_blocks()
     update_sky()
     if player.Y < -20:
         reset()
