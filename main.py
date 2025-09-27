@@ -1,18 +1,20 @@
 from ursina import *
 from ursina.prefabs.first_person_controller import FirstPersonController
 from random import randint
+import time
 
 app = Ursina()
 
-skybox_image = load_texture("textures/DaySky.png")
-sky = Sky(texture=skybox_image)
+DAY_SKY = load_texture("textures/DaySky.png")
+NIGHT_SKY = load_texture("textures/NightSky.png")
+sky = Sky(texture=DAY_SKY)
 
 start_time = 0
-WORLD_SIZE = (11, 7, 11)
-VIEW_SIZE = 10
-BUILD_DIST = 5
+WORLD_SIZE = (12, 7, 12)
 TPS = 50
 FLOWER_SPAWN_CHANCE = 5
+ANDESITE_SPAWN_CHANCE = 3
+DIORITE_SPAWN_CHANCE = 3
 tex = "textures/Grass.png"
 tick = 0
 
@@ -28,51 +30,108 @@ b_textures = {
     9: load_texture("textures/RedFlower.png"),
 }
 
+blocks = []
+blocks_by_key = {}
+
+def pos_to_key(pos):
+    return (int(pos.x), int(pos.y), int(pos.z))
+
+def neighbor_keys(key):
+    x,y,z = key
+    return [
+        (x+1,y,z), (x-1,y,z),
+        (x,y+1,z), (x,y-1,z),
+        (x,y,z+1), (x,y,z-1),
+    ]
+
 def generate_world():
     for x in range(WORLD_SIZE[0]):
         for y in range(WORLD_SIZE[1]):
             for z in range(WORLD_SIZE[2]):
+                pos = (x, -y, z)
                 if y == 0:
-                    blocks.append(Entity(model="cube", texture=b_textures[1], position=(x, -y, z), collider="box"))
-                elif y > 0 and y < 3:
-                    blocks.append(Entity(model="cube", texture=b_textures[5], position=(x, -y, z), collider="box"))
-                elif y >= 3:
-                    blocks.append(Entity(model="cube", texture=b_textures[2], position=(x, -y, z), collider="box"))
+                    tex_i = 1
+                elif 0 < y < 3:
+                    tex_i = 5
+                else:
+                    num = randint(1, 100)
+                    if num <= ANDESITE_SPAWN_CHANCE:
+                        tex_i = 6
+                    elif num <= ANDESITE_SPAWN_CHANCE + DIORITE_SPAWN_CHANCE:
+                        tex_i = 7
+                    else:
+                        tex_i = 2
+                e = Entity(model="cube", texture=b_textures[tex_i], position=pos, collider=None)
+                blocks.append(e)
+                blocks_by_key[pos_to_key(e.position)] = e
 
-def generate_flowers():
-    for x in range(WORLD_SIZE[0]):
-        for z in range(WORLD_SIZE[2]):
-            if randint(1, 100) <= FLOWER_SPAWN_CHANCE:
-                blocks.append(Entity(model="cube", texture=b_textures[randint(8, 9)], position=(x, 1, z), scale=(1, 1, 0.001), collider="box"))
+def neighbor_keys(key):
+    x, y, z = key
+    return [
+        (x+1, y, z), (x-1, y, z),
+        (x, y+1, z), (x, y-1, z),
+        (x, y, z+1), (x, y, z-1),
+    ]
+
+def has_empty_neighbor_by_key(key):
+    for n in neighbor_keys(key):
+        if n not in blocks_by_key:
+            return True
+    return False
+
+def update_block_and_neighbors(key):
+    keys = [key] + neighbor_keys(key)
+    for k in keys:
+        b = blocks_by_key.get(k)
+        if not b:
+            continue
+        visible = has_empty_neighbor_by_key(k)
+        prev = getattr(b, "_visible", None)
+        if visible:
+            if prev is not True:
+                b.enabled = True
+                b.collider = "box"
+                b._visible = True
+        else:
+            if prev is not False:
+                b.enabled = False
+                b.collider = None
+                b._visible = False
+
+
+def update_all_visibility_once():
+    for k in list(blocks_by_key.keys()):
+        update_block_and_neighbors(k)
 
 def build_block():
     hit_info = raycast(camera.world_position, camera.forward, distance=5)
     if hit_info.hit:
-        blocks.append(Entity(model="cube", texture=tex, position=hit_info.entity.position + hit_info.normal, collider="box"))
-
-def render_blocks():
-    for block in blocks:
-        if block.position.y < player.y-2:
-            block.enabled = False
-            block.collider = None
-        else:
-            block.enabled = True
-            block.collider = "box"
-
-def update_sky():
-    if tick%2000 <= 1000:
-        sky.texture = load_texture("textures/DaySky.png")
-    else:
-        sky.texture = load_texture("textures/NightSky.png")
+        new_pos = hit_info.entity.position + hit_info.normal
+        new_ent = Entity(model="cube", texture=tex, position=new_pos, collider=None)
+        blocks.append(new_ent)
+        blocks_by_key[pos_to_key(new_ent.position)] = new_ent
+        update_block_and_neighbors(pos_to_key(new_pos))
 
 def destroy_block():
     hit_info = raycast(camera.world_position, camera.forward, distance=5)
     if hit_info.hit:
-        blocks.remove(hit_info.entity)   
-        destroy(hit_info.entity)
+        ent = hit_info.entity
+        k = pos_to_key(ent.position)
+        if ent in blocks:
+            blocks.remove(ent)
+        if k in blocks_by_key:
+            del blocks_by_key[k]
+        destroy(ent)
+        update_block_and_neighbors(k)
+
+def update_sky():
+    if tick % 2000 <= 1000:
+        sky.texture = DAY_SKY
+    else:
+        sky.texture = NIGHT_SKY
 
 def reset():
-    player.position = (5, 5, 5)
+    player.position = (5,5,5)
 
 def close_menu():
     global start_time
@@ -86,7 +145,6 @@ def close_menu():
 
 def input(key):
     global tex
-    print(key)
     if key == "escape":
         exit()
     if key == "left mouse down":
@@ -98,81 +156,61 @@ def input(key):
             destroy_block()
     if key == "right mouse down":
         build_block()
-        
-    if key == "1":
+    if key == "1": 
         tex = b_textures[1]
-
-    if key == "2":
+    if key == "2": 
         tex = b_textures[2]
-
-    if key == "3":
+    if key == "3": 
         tex = b_textures[3]
-
-    if key == "4":
+    if key == "4": 
         tex = b_textures[4]
-    
-    if key == "5":
+    if key == "5": 
         tex = b_textures[5]
-        
-    if key == "6":
+    if key == "6": 
         tex = b_textures[6]
-    
-    if key == "7":
+    if key == "7": 
         tex = b_textures[7]
-    
     if key == "f3":
         ticsText.enabled = not ticsText.enabled
         posText.enabled = not posText.enabled
-    
     if key == "u":
         mouse.locked = not mouse.locked
+    if key == "r":
+        reset()
 
-ticsText = Text(
-    text=' ',
-    scale=2,
-    position=(-0.75, 0.4),
-    origin=(0, 0),
-    color=color.hex("#000000")
-)
-posText = Text(
-    text=' ',
-    scale=2,
-    position=(-0.675, 0.34),
-    origin=(0, 0),
-    color=color.hex("#000000")
-)
+ticsText = Text(text=' ', scale=2, position=(-0.75,0.4), origin=(0,0), color=color.hex("#000000"))
+posText = Text(text=' ', scale=2, position=(-0.675,0.34), origin=(0,0), color=color.hex("#000000"))
 ticsText.enabled = False
 posText.enabled = False
 
 def update():
     global tick
-    t = time.time()-start_time
+    t = time.time() - start_time
     ticsText.text = f"Tick №{round(t*TPS)}"
-    posText.text = f"POSITION: {player.X}, {player.Y}, {player.Z}"
+    if hasattr(player, 'position'):
+        posText.text = f"POSITION: {player.position}"
     tick = round(t*TPS)
-    # render_blocks()
     update_sky()
-    if player.Y < -20:
+    if player.y < -20:
         reset()
 
-blocks = []
-
 generate_world()
-generate_flowers()
+update_all_visibility_once()
 
 player = FirstPersonController()
-player.position = (5, 5, 5)
+player.position = (5,5,5)
 player.gravity = 0
 player.cursor.texture = "textures/Cross.png"
 player.cursor.scale = 0.01
 player.cursor.color = color.white
 player.cursor.rotation_z = 0
+player.height = 1.5
 
 mouse.locked = False
 
-menu_bg = Entity(parent=camera.ui, model="cube", scale=(2, 1, 2), texture="textures/MenuBG.png")
-start_btn = Entity(parent=camera.ui, model="cube", scale=(0.2, 0.1, 0.2), texture="textures/PlayButton.png", collider="box")
-exit_btn = Entity(parent=camera.ui, model="cube", scale=(0.1, 0.05, 0.1), texture="textures/ExitButton.png", collider="box", position=(-0.6, -0.4, 0))
-logo = Entity(parent=camera.ui, model="cube", scale=(1.5, 0.2, 0.2), texture="textures/BuildAndLifeLogo.png", position=(0, 0.3, 0))
+menu_bg = Entity(parent=camera.ui, model="cube", scale=(2,1,2), texture="textures/MenuBG.png")
+start_btn = Entity(parent=camera.ui, model="cube", scale=(0.2,0.1,0.2), texture="textures/PlayButton.png", collider="box")
+exit_btn = Entity(parent=camera.ui, model="cube", scale=(0.1,0.05,0.1), texture="textures/ExitButton.png", collider="box", position=(-0.6,-0.4,0))
+logo = Entity(parent=camera.ui, model="cube", scale=(1.5,0.2,0.2), texture="textures/BuildAndLifeLogo.png", position=(0,0.3,0))
 
 app.run()
