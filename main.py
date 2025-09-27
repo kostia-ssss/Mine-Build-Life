@@ -10,11 +10,15 @@ NIGHT_SKY = load_texture("textures/NightSky.png")
 sky = Sky(texture=DAY_SKY)
 
 start_time = 0
+tex_id = 1
 WORLD_SIZE = (12, 7, 12)
 TPS = 50
 FLOWER_SPAWN_CHANCE = 5
 ANDESITE_SPAWN_CHANCE = 3
 DIORITE_SPAWN_CHANCE = 3
+TREE_HEIGHT = 4
+TALL_TREE_HEIGHT = 5
+TREE_SPAWN_CHANCE = 1
 tex = "textures/Grass.png"
 tick = 0
 
@@ -28,10 +32,20 @@ b_textures = {
     7: load_texture("textures/Diorite.png"),
     8: load_texture("textures/YellowFlower.png"),
     9: load_texture("textures/RedFlower.png"),
+    10: load_texture("textures/WoodPlanks.png"),
+    11: load_texture("textures/Leafs.png"),
 }
 
 blocks = []
 blocks_by_key = {}
+
+class Block(Entity):
+    def __init__(self, tex_id, add_to_scene_entities=True, enabled=True, **kwargs):
+        super().__init__(add_to_scene_entities, enabled, **kwargs)
+        if tex_id == 11:
+            self.is_transparent = True
+        else:
+            self.is_transparent = False
 
 def pos_to_key(pos):
     return (int(pos.x), int(pos.y), int(pos.z))
@@ -44,11 +58,16 @@ def neighbor_keys(key):
         (x,y,z+1), (x,y,z-1),
     ]
 
+def add_entity(tex_id, pos, model, scale=(1, 1, 1)):
+    global blocks, blocks_by_key
+    e = Block(tex_id, model=model, texture=b_textures[tex_id], position=pos, scale=scale)
+    blocks.append(e)
+    blocks_by_key[pos_to_key(e.position)] = e
+
 def generate_world():
     for x in range(WORLD_SIZE[0]):
         for y in range(WORLD_SIZE[1]):
             for z in range(WORLD_SIZE[2]):
-                pos = (x, -y, z)
                 if y == 0:
                     tex_i = 1
                 elif 0 < y < 3:
@@ -61,10 +80,33 @@ def generate_world():
                         tex_i = 7
                     else:
                         tex_i = 2
-                e = Entity(model="cube", texture=b_textures[tex_i], position=pos, collider=None)
-                blocks.append(e)
-                blocks_by_key[pos_to_key(e.position)] = e
+                add_entity(tex_i, Vec3(x, -y, z), "cube")
 
+def generate_tree(pos: Vec3, height: int):
+    x, z = pos.X, pos.Z
+    for y in range(height):
+        add_entity(4, (x, y+1, z), "wood", (0.5, 0.5, 0.5))
+    add_entity(11, (x, height+1, z), "cube")
+    
+    add_entity(11, (x+1, height, z), "cube")
+    add_entity(11, (x-1, height, z), "cube")
+    add_entity(11, (x, height, z+1), "cube")
+    add_entity(11, (x, height, z-1), "cube")
+    
+    add_entity(11, (x+1, height-1, z), "cube")
+    add_entity(11, (x-1, height-1, z), "cube")
+    add_entity(11, (x, height-1, z+1), "cube")
+    add_entity(11, (x, height-1, z-1), "cube")
+
+def generate_trees():
+    for x in range(WORLD_SIZE[0]):
+        for z in range(WORLD_SIZE[2]):
+            if randint(1, 100) <= TREE_SPAWN_CHANCE:
+                if randint(1, 4) == 4:
+                    generate_tree(Vec3(x, 0, z), TREE_HEIGHT+2)
+                else:
+                    generate_tree(Vec3(x, 0, z), TREE_HEIGHT)
+                    
 def neighbor_keys(key):
     x, y, z = key
     return [
@@ -99,15 +141,18 @@ def update_block_and_neighbors(key):
                 b._visible = False
 
 
-def update_all_visibility_once():
+def update_all_visibility():
     for k in list(blocks_by_key.keys()):
         update_block_and_neighbors(k)
 
-def build_block():
+def build_block(tex_id):
     hit_info = raycast(camera.world_position, camera.forward, distance=5)
     if hit_info.hit:
         new_pos = hit_info.entity.position + hit_info.normal
-        new_ent = Entity(model="cube", texture=tex, position=new_pos, collider=None)
+        new_ent = Block(tex_id=tex_id, model="cube", texture=b_textures[tex_id], position=new_pos, collider=None)
+        if tex_id == 4:
+            new_ent.model = "models/wood.obj"
+            new_ent.scale = (0.5, 0.5, 0.5)
         blocks.append(new_ent)
         blocks_by_key[pos_to_key(new_ent.position)] = new_ent
         update_block_and_neighbors(pos_to_key(new_pos))
@@ -144,7 +189,7 @@ def close_menu():
     start_time = time.time()
 
 def input(key):
-    global tex
+    global tex_id
     if key == "escape":
         exit()
     if key == "left mouse down":
@@ -155,21 +200,25 @@ def input(key):
         else:
             destroy_block()
     if key == "right mouse down":
-        build_block()
+        build_block(tex_id)
     if key == "1": 
-        tex = b_textures[1]
+        tex_id = 1
     if key == "2": 
-        tex = b_textures[2]
+        tex_id = 2
     if key == "3": 
-        tex = b_textures[3]
+        tex_id = 3
     if key == "4": 
-        tex = b_textures[4]
+        tex_id = 4
     if key == "5": 
-        tex = b_textures[5]
+        tex_id = 5
     if key == "6": 
-        tex = b_textures[6]
+        tex_id = 6
     if key == "7": 
-        tex = b_textures[7]
+        tex_id = 7
+    if key == "8": 
+        tex_id = 8
+    if key == "9": 
+        tex_id = 11
     if key == "f3":
         ticsText.enabled = not ticsText.enabled
         posText.enabled = not posText.enabled
@@ -188,14 +237,15 @@ def update():
     t = time.time() - start_time
     ticsText.text = f"Tick №{round(t*TPS)}"
     if hasattr(player, 'position'):
-        posText.text = f"POSITION: {player.position}"
+        posText.text = f"POSITION: {player.X}, {player.Y}, {player.Z}"
     tick = round(t*TPS)
     update_sky()
     if player.y < -20:
         reset()
 
 generate_world()
-update_all_visibility_once()
+update_all_visibility()
+generate_trees()
 
 player = FirstPersonController()
 player.position = (5,5,5)
