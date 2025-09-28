@@ -10,7 +10,9 @@ NIGHT_SKY = load_texture("textures/NightSky.png")
 sky = Sky(texture=DAY_SKY)
 
 start_time = 0
+cells_num = 9
 tex_id = 1
+selected_item = 1
 WORLD_SIZE = (12, 7, 12)
 TPS = 50
 FLOWER_SPAWN_CHANCE = 5
@@ -21,6 +23,7 @@ TALL_TREE_HEIGHT = 5
 TREE_SPAWN_CHANCE = 1
 tex = "textures/Grass.png"
 tick = 0
+selecter = Entity(parent=camera.ui, model="cube", texture="textures/InventoryBorder.png", scale=0.09)
 
 b_textures = {
     1: load_texture("textures/Grass.png"),
@@ -30,13 +33,13 @@ b_textures = {
     5: load_texture("textures/Ground.png"),
     6: load_texture("textures/Andesite.png"),
     7: load_texture("textures/Diorite.png"),
-    8: load_texture("textures/YellowFlower.png"),
-    9: load_texture("textures/RedFlower.png"),
-    10: load_texture("textures/WoodPlanks.png"),
-    11: load_texture("textures/Leafs.png"),
+    8: load_texture("textures/WoodPlanks.png"),
+    9: load_texture("textures/Leafs.png"),
 }
 
 blocks = []
+inv_cells = []
+inv_blocks = []
 blocks_by_key = {}
 
 class Block(Entity):
@@ -86,17 +89,17 @@ def generate_tree(pos: Vec3, height: int):
     x, z = pos.X, pos.Z
     for y in range(height):
         add_entity(4, (x, y+1, z), "wood", (0.5, 0.5, 0.5))
-    add_entity(11, (x, height+1, z), "cube")
+    add_entity(9, (x, height+1, z), "cube")
     
-    add_entity(11, (x+1, height, z), "cube")
-    add_entity(11, (x-1, height, z), "cube")
-    add_entity(11, (x, height, z+1), "cube")
-    add_entity(11, (x, height, z-1), "cube")
+    add_entity(9, (x+1, height, z), "cube")
+    add_entity(9, (x-1, height, z), "cube")
+    add_entity(9, (x, height, z+1), "cube")
+    add_entity(9, (x, height, z-1), "cube")
     
-    add_entity(11, (x+1, height-1, z), "cube")
-    add_entity(11, (x-1, height-1, z), "cube")
-    add_entity(11, (x, height-1, z+1), "cube")
-    add_entity(11, (x, height-1, z-1), "cube")
+    add_entity(9, (x+1, height-1, z), "cube")
+    add_entity(9, (x-1, height-1, z), "cube")
+    add_entity(9, (x, height-1, z+1), "cube")
+    add_entity(9, (x, height-1, z-1), "cube")
 
 def generate_trees():
     for x in range(WORLD_SIZE[0]):
@@ -187,9 +190,34 @@ def close_menu():
     exit_btn.enabled = False
     player.gravity = 1
     start_time = time.time()
+    show_inventory()
+
+def create_inventory(cells_num=9):
+    for i in range(cells_num):
+        inv_cells.append(Entity(parent=camera.ui, model="cube", texture="textures/InventoryCell.png", position=((i-(cells_num/2))/12, -0.4, 0), scale=0.09))
+        inv_blocks.append(Entity(parent=camera.ui, model="cube", position=((i-(cells_num/2))/12, -0.4, 0), texture=b_textures[i+1], scale = 0.04, rotation=(45, 45, 0)))
+        if i == 3:
+            inv_blocks[-1].model = "models/wood"
+            inv_blocks[-1].scale = 0.02
+
+def hide_inventory():
+    global selecter
+    for e in inv_cells:
+        e.enabled = False
+    for e in inv_blocks:
+        e.enabled = False
+    selecter.enabled = False
+
+def show_inventory():
+    global selecter
+    for e in inv_cells:
+        e.enabled = True
+    for e in inv_blocks:
+        e.enabled = True
+    selecter.enabled = True  
 
 def input(key):
-    global tex_id
+    global tex_id, selected_item
     if key == "escape":
         exit()
     if key == "left mouse down":
@@ -202,23 +230,23 @@ def input(key):
     if key == "right mouse down":
         build_block(tex_id)
     if key == "1": 
-        tex_id = 1
+        selected_item = 1
     if key == "2": 
-        tex_id = 2
+        selected_item = 2
     if key == "3": 
-        tex_id = 3
+        selected_item = 3
     if key == "4": 
-        tex_id = 4
+        selected_item = 4
     if key == "5": 
-        tex_id = 5
+        selected_item = 5
     if key == "6": 
-        tex_id = 6
+        selected_item = 6
     if key == "7": 
-        tex_id = 7
+        selected_item = 7
     if key == "8": 
-        tex_id = 8
+        selected_item = 8
     if key == "9": 
-        tex_id = 11
+        selected_item = 9
     if key == "f3":
         ticsText.enabled = not ticsText.enabled
         posText.enabled = not posText.enabled
@@ -226,6 +254,14 @@ def input(key):
         mouse.locked = not mouse.locked
     if key == "r":
         reset()
+    if key == "h":
+        hide_inventory()
+    if key == "g":
+        show_inventory()
+    if key == "scroll down":
+        selected_item = (selected_item - 1) % cells_num
+    if key == "scroll up":
+        selected_item = (selected_item + 1) % cells_num
 
 ticsText = Text(text=' ', scale=2, position=(-0.75,0.4), origin=(0,0), color=color.hex("#000000"))
 posText = Text(text=' ', scale=2, position=(-0.675,0.34), origin=(0,0), color=color.hex("#000000"))
@@ -233,19 +269,22 @@ ticsText.enabled = False
 posText.enabled = False
 
 def update():
-    global tick
+    global tick, tex_id
     t = time.time() - start_time
     ticsText.text = f"Tick №{round(t*TPS)}"
-    if hasattr(player, 'position'):
-        posText.text = f"POSITION: {player.X}, {player.Y}, {player.Z}"
+    posText.text = f"POSITION: {player.X}, {player.Y}, {player.Z}"
     tick = round(t*TPS)
+    tex_id = selected_item
     update_sky()
+    selecter.position=inv_cells[selected_item-1].position
     if player.y < -20:
         reset()
 
 generate_world()
-update_all_visibility()
 generate_trees()
+update_all_visibility()
+create_inventory(cells_num)
+hide_inventory()
 
 player = FirstPersonController()
 player.position = (5,5,5)
