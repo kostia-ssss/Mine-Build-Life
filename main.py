@@ -300,6 +300,6 @@ mouse.locked = False
 menu_bg = Entity(parent=camera.ui, model="cube", scale=(2,1,2), texture="textures/MenuBG.png")
 start_btn = Entity(parent=camera.ui, model="cube", scale=(0.2,0.1,0.2), texture="textures/PlayButton.png", collider="box")
 exit_btn = Entity(parent=camera.ui, model="cube", scale=(0.1,0.05,0.1), texture="textures/ExitButton.png", collider="box", position=(-0.6,-0.4,0))
-logo = Entity(parent=camera.ui, model="cube", scale=(1.5,0.2,0.2), texture="textures/BuildAndLifeLogo.png", position=(0,0.3,0))
+logo = Entity(parent=camera.ui, model="cube", scale=(0.5,0.3,0.5), texture="textures/BuildAndLifeLogo.png", position=(-0.6,0.3,0))
 
 app.run()
