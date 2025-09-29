@@ -7,13 +7,16 @@ app = Ursina()
 
 DAY_SKY = load_texture("textures/DaySky.png")
 NIGHT_SKY = load_texture("textures/NightSky.png")
+EVENING_SKY = load_texture("textures/EveningSky.png")
 sky = Sky(texture=DAY_SKY)
 
 start_time = 0
+first_empty_slot = 0
 cells_num = 9
 tex_id = 1
 selected_item = 1
-WORLD_SIZE = (12, 7, 12)
+HP_NUM = 10
+WORLD_SIZE = (12, 12, 12)
 TPS = 50
 FLOWER_SPAWN_CHANCE = 5
 ANDESITE_SPAWN_CHANCE = 3
@@ -21,6 +24,8 @@ DIORITE_SPAWN_CHANCE = 3
 TREE_HEIGHT = 4
 TALL_TREE_HEIGHT = 5
 TREE_SPAWN_CHANCE = 1
+IRON_SPAWN_CHANCE = 10
+GOLDEN_SPAWN_CHANCE = 6
 tex = "textures/Grass.png"
 tick = 0
 selecter = Entity(parent=camera.ui, model="cube", texture="textures/InventoryBorder.png", scale=0.09)
@@ -35,16 +40,20 @@ b_textures = {
     7: load_texture("textures/Diorite.png"),
     8: load_texture("textures/WoodPlanks.png"),
     9: load_texture("textures/Leafs.png"),
+    10: load_texture("textures/IronOre.png"),
+    11: load_texture("textures/GoldenOre.png"),
 }
 
 blocks = []
 inv_cells = []
 inv_blocks = []
+health = []
 blocks_by_key = {}
 
 class Block(Entity):
     def __init__(self, tex_id, add_to_scene_entities=True, enabled=True, **kwargs):
         super().__init__(add_to_scene_entities, enabled, **kwargs)
+        self.tex_id = tex_id
         if tex_id == 11:
             self.is_transparent = True
         else:
@@ -52,6 +61,10 @@ class Block(Entity):
 
 def pos_to_key(pos):
     return (int(pos.x), int(pos.y), int(pos.z))
+
+def makeHP():
+    for i in range(HP_NUM):
+        health.append(Entity(parent=camera.ui, model="cube", texture="textures/HP.png", position=((i-(HP_NUM/2))/35-0.27, -0.33, 0), scale=0.02))
 
 def neighbor_keys(key):
     x,y,z = key
@@ -81,6 +94,10 @@ def generate_world():
                         tex_i = 6
                     elif num <= ANDESITE_SPAWN_CHANCE + DIORITE_SPAWN_CHANCE:
                         tex_i = 7
+                    elif num <= ANDESITE_SPAWN_CHANCE + DIORITE_SPAWN_CHANCE + IRON_SPAWN_CHANCE:
+                        tex_i = 10
+                    elif num <= ANDESITE_SPAWN_CHANCE + DIORITE_SPAWN_CHANCE + IRON_SPAWN_CHANCE + GOLDEN_SPAWN_CHANCE:
+                        tex_i = 11
                     else:
                         tex_i = 2
                 add_entity(tex_i, Vec3(x, -y, z), "cube")
@@ -179,8 +196,11 @@ def destroy_block():
         update_block_and_neighbors(k)
 
 def update_sky():
-    if tick % 2000 <= 1000:
+    tick_ = tick % 2000
+    if tick_ <= 950:
         sky.texture = DAY_SKY
+    elif tick_ > 950 and tick_ < 1050 or tick_ > 1950 and tick_ < 50:
+        sky.texture = EVENING_SKY
     else:
         sky.texture = NIGHT_SKY
 
@@ -208,6 +228,7 @@ def create_inventory(cells_num=9):
         if i == 0:
             inv_blocks[-1].model = "models/grass"
             inv_blocks[-1].scale = 0.02
+    
 
 def hide_inventory():
     global selecter
@@ -292,9 +313,9 @@ def update():
 generate_world()
 generate_trees()
 update_all_visibility()
+# makeHP()
 create_inventory(cells_num)
 hide_inventory()
-
 player = FirstPersonController()
 player.position = (5,5,5)
 player.gravity = 0
