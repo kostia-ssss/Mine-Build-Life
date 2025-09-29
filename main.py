@@ -84,6 +84,9 @@ def generate_world():
                     else:
                         tex_i = 2
                 add_entity(tex_i, Vec3(x, -y, z), "cube")
+                if tex_i == 1:
+                    blocks[-1].model = "models/grass.obj"
+                    blocks[-1].scale = (0.5, 0.5, 0.5)
 
 def generate_tree(pos: Vec3, height: int):
     x, z = pos.X, pos.Z
@@ -156,6 +159,9 @@ def build_block(tex_id):
         if tex_id == 4:
             new_ent.model = "models/wood.obj"
             new_ent.scale = (0.5, 0.5, 0.5)
+        if tex_id == 1:
+            new_ent.model = "models/grass.obj"
+            new_ent.scale = (0.5, 0.5, 0.5)
         blocks.append(new_ent)
         blocks_by_key[pos_to_key(new_ent.position)] = new_ent
         update_block_and_neighbors(pos_to_key(new_pos))
@@ -198,6 +204,9 @@ def create_inventory(cells_num=9):
         inv_blocks.append(Entity(parent=camera.ui, model="cube", position=((i-(cells_num/2))/12, -0.4, 0), texture=b_textures[i+1], scale = 0.04, rotation=(45, 45, 0)))
         if i == 3:
             inv_blocks[-1].model = "models/wood"
+            inv_blocks[-1].scale = 0.02
+        if i == 0:
+            inv_blocks[-1].model = "models/grass"
             inv_blocks[-1].scale = 0.02
 
 def hide_inventory():
