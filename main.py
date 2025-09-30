@@ -59,6 +59,19 @@ class Block(Entity):
         else:
             self.is_transparent = False
 
+class Pig(Entity):
+    def __init__(self, speed, add_to_scene_entities=True, enabled=True, **kwargs):
+        super().__init__(add_to_scene_entities, enabled, **kwargs)
+        self.speed = speed
+    
+    def move(self, point: Vec3):
+        direction = (point - pig.position).normalized()
+        self.position += direction * self.speed * time.dt
+        self.look_at(point)
+        self.rotation_y += 180
+        if distance(self.position, point) < 0.5:
+            return "End"
+
 def pos_to_key(pos):
     return (int(pos.x), int(pos.y), int(pos.z))
 
@@ -297,15 +310,19 @@ ticsText = Text(text=' ', scale=2, position=(-0.75,0.4), origin=(0,0), color=col
 posText = Text(text=' ', scale=2, position=(-0.675,0.34), origin=(0,0), color=color.hex("#000000"))
 ticsText.enabled = False
 posText.enabled = False
+target = Vec3(5, 1.4, 5)
 
 def update():
-    global tick, tex_id
+    global tick, tex_id, target
     t = time.time() - start_time
     ticsText.text = f"Tick №{round(t*TPS)}"
     posText.text = f"POSITION: {player.X}, {player.Y}, {player.Z}"
     tick = round(t*TPS)
     tex_id = selected_item
     update_sky()
+    # pig.move(Vec3(5, 1.4, 5))
+    if pig.move(target) == "End":
+        target = Vec3(randint(2, 6), 1.4, randint(2, 6))
     selecter.position=inv_cells[selected_item-1].position
     if player.y < -20:
         reset()
@@ -316,6 +333,9 @@ update_all_visibility()
 # makeHP()
 create_inventory(cells_num)
 hide_inventory()
+
+pig = Pig(0.5, model="models/pig.obj", texture="textures/pig.png", position=(1, 1.4, 1), scale = 0.4)
+
 player = FirstPersonController()
 player.position = (5,5,5)
 player.gravity = 0
