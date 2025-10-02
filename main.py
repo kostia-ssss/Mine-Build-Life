@@ -15,9 +15,10 @@ first_empty_slot = 0
 cells_num = 9
 tex_id = 1
 selected_item = 1
+CM_opened = False
 HP_NUM = 10
-WORLD_SIZE = (12, 12, 12)
-TPS = 50
+WORLD_SIZE = (15, 8, 15)
+TPS = 25
 FLOWER_SPAWN_CHANCE = 5
 ANDESITE_SPAWN_CHANCE = 3
 DIORITE_SPAWN_CHANCE = 3
@@ -28,7 +29,11 @@ IRON_SPAWN_CHANCE = 10
 GOLDEN_SPAWN_CHANCE = 6
 tex = "textures/Grass.png"
 tick = 0
+angle = 0
+radius = 100
+speed = 4.25
 selecter = Entity(parent=camera.ui, model="cube", texture="textures/InventoryBorder.png", scale=0.09)
+sun = Entity(model="cube", texture="textures/Sun.png", position=(0, 100, 0), scale=(10))
 
 b_textures = {
     1: load_texture("textures/Grass.png"),
@@ -217,6 +222,17 @@ def update_sky():
     else:
         sky.texture = NIGHT_SKY
 
+def update_sun():
+    global angle
+    angle += speed * time.dt
+
+    rad = math.radians(angle)
+
+    x = player.x + math.cos(rad) * radius
+    y = player.y + math.sin(rad) * radius
+    sun.position = (x, y, 0)
+    sun.look_at(player)
+
 def reset():
     player.position = (5,5,5)
 
@@ -235,6 +251,7 @@ def create_inventory(cells_num=9):
     for i in range(cells_num):
         inv_cells.append(Entity(parent=camera.ui, model="cube", texture="textures/InventoryCell.png", position=((i-(cells_num/2))/12, -0.4, 0), scale=0.09))
         inv_blocks.append(Entity(parent=camera.ui, model="cube", position=((i-(cells_num/2))/12, -0.4, 0), texture=b_textures[i+1], scale = 0.04, rotation=(45, 45, 0)))
+    
         if i == 3:
             inv_blocks[-1].model = "models/wood"
             inv_blocks[-1].scale = 0.02
@@ -259,10 +276,23 @@ def show_inventory():
         e.enabled = True
     selecter.enabled = True  
 
+def open_crafting_menu():
+    global CM_opened
+    crafting_bg.enabled = True
+    CM_opened = True
+
+def close_crafting_menu():
+    global CM_opened
+    crafting_bg.enabled = False
+    CM_opened = False
+
 def input(key):
     global tex_id, selected_item
     if key == "escape":
-        exit()
+        if CM_opened == False:
+            exit()
+        elif CM_opened == True:
+            close_crafting_menu()
     if key == "left mouse down":
         if start_btn.hovered:
             close_menu()
@@ -271,7 +301,10 @@ def input(key):
         else:
             destroy_block()
     if key == "right mouse down":
-        build_block(tex_id)
+        if crafting_table.hovered:
+            open_crafting_menu()
+        else:
+            build_block(tex_id)
     if key == "1": 
         selected_item = 1
     if key == "2": 
@@ -320,9 +353,9 @@ def update():
     tick = round(t*TPS)
     tex_id = selected_item
     update_sky()
-    # pig.move(Vec3(5, 1.4, 5))
+    update_sun()
     if pig.move(target) == "End":
-        target = Vec3(randint(2, 6), 1.4, randint(2, 6))
+        target = Vec3(randint(0, WORLD_SIZE[0]), 1.4, randint(0, WORLD_SIZE[2]))
     selecter.position=inv_cells[selected_item-1].position
     if player.y < -20:
         reset()
@@ -334,7 +367,8 @@ update_all_visibility()
 create_inventory(cells_num)
 hide_inventory()
 
-pig = Pig(0.5, model="models/pig.obj", texture="textures/pig.png", position=(1, 1.4, 1), scale = 0.4)
+pig = Pig(0.5, model="models/pig.obj", texture="textures/pig.png", collider="box", position=(1, 1.4, 1), scale = 0.4)
+crafting_table = Block(tex_id=tex_id, model="models/craftingtable.obj", texture="textures/CraftingTable", position=(10, 1, 10), collider="box", scale=0.5)
 
 player = FirstPersonController()
 player.position = (5,5,5)
@@ -347,6 +381,8 @@ player.height = 1.5
 
 mouse.locked = False
 
+crafting_bg = Entity(parent=camera.ui, model="cube", scale=(1.5,1,2), texture="textures/CraftingBG.png")
+crafting_bg.enabled = False
 menu_bg = Entity(parent=camera.ui, model="cube", scale=(2,1,2), texture="textures/MenuBG.png")
 start_btn = Entity(parent=camera.ui, model="cube", scale=(0.2,0.1,0.2), texture="textures/PlayButton.png", collider="box")
 exit_btn = Entity(parent=camera.ui, model="cube", scale=(0.1,0.05,0.1), texture="textures/ExitButton.png", collider="box", position=(-0.6,-0.4,0))
