@@ -2,6 +2,7 @@ from ursina import *
 from ursina.prefabs.first_person_controller import FirstPersonController
 from random import randint
 import time
+from settings import *
 
 app = Ursina()
 
@@ -16,24 +17,16 @@ cells_num = 9
 tex_id = 1
 selected_item = 1
 CM_opened = False
-HP_NUM = 10
-WORLD_SIZE = (15, 8, 15)
-TPS = 25
-FLOWER_SPAWN_CHANCE = 5
-ANDESITE_SPAWN_CHANCE = 3
-DIORITE_SPAWN_CHANCE = 3
-TREE_HEIGHT = 4
-TALL_TREE_HEIGHT = 5
-TREE_SPAWN_CHANCE = 1
-IRON_SPAWN_CHANCE = 10
-GOLDEN_SPAWN_CHANCE = 6
 tex = "textures/Grass.png"
 tick = 0
 angle = 0
 radius = 100
 speed = 4.25
+jumps = 0
 selecter = Entity(parent=camera.ui, model="cube", texture="textures/InventoryBorder.png", scale=0.09)
 sun = Entity(model="cube", texture="textures/Sun.png", position=(0, 100, 0), scale=(10))
+jumper = Entity(parent=camera.ui, model="cube", texture="textures/achievements/Jumper.png", scale=(0.7, 0.2, 1), position=(0.5, 0.3))
+jumper.enabled = False
 
 b_textures = {
     1: load_texture("textures/Grass.png"),
@@ -48,6 +41,9 @@ b_textures = {
     10: load_texture("textures/IronOre.png"),
     11: load_texture("textures/GoldenOre.png"),
 }
+
+achievements = {"Jumper": False,
+                "FirstNight": False,}
 
 blocks = []
 inv_cells = []
@@ -287,7 +283,7 @@ def close_crafting_menu():
     CM_opened = False
 
 def input(key):
-    global tex_id, selected_item
+    global tex_id, selected_item, jumps, achievements
     if key == "escape":
         if CM_opened == False:
             exit()
@@ -338,16 +334,23 @@ def input(key):
         selected_item = (selected_item - 1) % cells_num
     if key == "scroll up":
         selected_item = (selected_item + 1) % cells_num
+    if key == 'space':
+        jumps += 1
+        if jumps >= 10:
+            achievements["Jumper"] = True
+
 
 ticsText = Text(text=' ', scale=2, position=(-0.75,0.4), origin=(0,0), color=color.hex("#000000"))
 posText = Text(text=' ', scale=2, position=(-0.675,0.34), origin=(0,0), color=color.hex("#000000"))
 ticsText.enabled = False
 posText.enabled = False
 target = Vec3(5, 1.4, 5)
+i = 0
 
 def update():
-    global tick, tex_id, target
+    global tick, tex_id, target, i
     t = time.time() - start_time
+    print(i)
     ticsText.text = f"Tick №{round(t*TPS)}"
     posText.text = f"POSITION: {player.X}, {player.Y}, {player.Z}"
     tick = round(t*TPS)
@@ -359,6 +362,12 @@ def update():
     selecter.position=inv_cells[selected_item-1].position
     if player.y < -20:
         reset()
+    if i <= 500:
+        jumper.enabled = achievements["Jumper"]
+    if achievements["Jumper"] == True:
+        i += 1
+        if i > 25:
+            jumper.enabled = False
 
 generate_world()
 generate_trees()
