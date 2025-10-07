@@ -27,6 +27,7 @@ selecter = Entity(parent=camera.ui, model="cube", texture="textures/InventoryBor
 sun = Entity(model="cube", texture="textures/Sun.png", position=(0, 100, 0), scale=(10))
 jumper = Entity(parent=camera.ui, model="cube", texture="textures/achievements/Jumper.png", scale=(0.7, 0.2, 1), position=(0.5, 0.3))
 jumper.enabled = False
+player = FirstPersonController()
 
 b_textures = {
     1: load_texture("textures/Grass.png"),
@@ -40,6 +41,7 @@ b_textures = {
     9: load_texture("textures/Leafs.png"),
     10: load_texture("textures/IronOre.png"),
     11: load_texture("textures/GoldenOre.png"),
+    12: load_texture("textures/Water.png"),
 }
 
 achievements = {"Jumper": False,
@@ -177,10 +179,24 @@ def update_block_and_neighbors(key):
                 b.collider = None
                 b._visible = False
 
-
 def update_all_visibility():
     for k in list(blocks_by_key.keys()):
         update_block_and_neighbors(k)
+    for b in blocks:
+        if b.enabled == True:
+            print(distance(player, b))
+            if abs(player.y-b.position.y) > 2:
+                b.enabled = False
+                b.collider = None
+                b._visible = False
+
+def update_render():
+    for b in blocks:
+        if distance(player, b) > VIEW_SIZE:
+            b.enabled = False
+            b.collider = None
+            b._visible = False
+
 
 def build_block(tex_id):
     hit_info = raycast(camera.world_position, camera.forward, distance=5)
@@ -255,7 +271,6 @@ def create_inventory(cells_num=9):
             inv_blocks[-1].model = "models/grass"
             inv_blocks[-1].scale = 0.02
     
-
 def hide_inventory():
     global selecter
     for e in inv_cells:
@@ -337,8 +352,7 @@ def input(key):
     if key == 'space':
         jumps += 1
         if jumps >= 10:
-            achievements["Jumper"] = True
-
+            achievements["Jumper"] = True     
 
 ticsText = Text(text=' ', scale=2, position=(-0.75,0.4), origin=(0,0), color=color.hex("#000000"))
 posText = Text(text=' ', scale=2, position=(-0.675,0.34), origin=(0,0), color=color.hex("#000000"))
@@ -350,13 +364,13 @@ i = 0
 def update():
     global tick, tex_id, target, i
     t = time.time() - start_time
-    print(i)
     ticsText.text = f"Tick №{round(t*TPS)}"
     posText.text = f"POSITION: {player.X}, {player.Y}, {player.Z}"
     tick = round(t*TPS)
     tex_id = selected_item
     update_sky()
     update_sun()
+    
     if pig.move(target) == "End":
         target = Vec3(randint(0, WORLD_SIZE[0]), 1.4, randint(0, WORLD_SIZE[2]))
     selecter.position=inv_cells[selected_item-1].position
@@ -377,11 +391,9 @@ create_inventory(cells_num)
 hide_inventory()
 
 pig = Pig(0.5, model="models/pig.obj", texture="textures/pig.png", collider="box", position=(1, 1.4, 1), scale = 0.4)
-crafting_table = Block(tex_id=tex_id, model="models/craftingtable.obj", texture="textures/CraftingTable", position=(10, 1, 10), collider="box", scale=0.5)
+crafting_table = Block(tex_id=tex_id, model="models/craftingtable.obj", texture="textures/CraftingTable.png", position=(10, 1, 10), collider="box", scale=0.5)
 
-player = FirstPersonController()
 player.position = (5,5,5)
-player.gravity = 0
 player.cursor.texture = "textures/Cross.png"
 player.cursor.scale = 0.01
 player.cursor.color = color.white
