@@ -3,6 +3,7 @@ from ursina.prefabs.first_person_controller import FirstPersonController
 from random import randint
 import time
 from settings import *
+from classes import *
 
 app = Ursina()
 
@@ -23,6 +24,8 @@ angle = 0
 radius = 100
 speed = 4.25
 jumps = 0
+sitting = False
+ 
 selecter = Entity(parent=camera.ui, model="cube", texture="textures/InventoryBorder.png", scale=0.09)
 sun = Entity(model="cube", texture="textures/Sun.png", position=(0, 100, 0), scale=(10))
 jumper = Entity(parent=camera.ui, model="cube", texture="textures/achievements/Jumper.png", scale=(0.7, 0.2, 1), position=(0.5, 0.3))
@@ -42,6 +45,10 @@ b_textures = {
     10: load_texture("textures/IronOre.png"),
     11: load_texture("textures/GoldenOre.png"),
     12: load_texture("textures/Water.png"),
+    13: load_texture("textures/YellowFlower.png"),
+    14: load_texture("textures/RedFlower.png"),
+    15: load_texture("textures/BlueFlower.png"),
+    16: load_texture("textures/Diamond.png"),
 }
 
 achievements = {"Jumper": False,
@@ -53,29 +60,8 @@ inv_blocks = []
 health = []
 blocks_by_key = {}
 
-class Block(Entity):
-    def __init__(self, tex_id, add_to_scene_entities=True, enabled=True, **kwargs):
-        super().__init__(add_to_scene_entities, enabled, **kwargs)
-        self.tex_id = tex_id
-        if tex_id == 11:
-            self.is_transparent = True
-        else:
-            self.is_transparent = False
 
-class Pig(Entity):
-    def __init__(self, speed, add_to_scene_entities=True, enabled=True, **kwargs):
-        super().__init__(add_to_scene_entities, enabled, **kwargs)
-        self.speed = speed
-    
-    def move(self, point: Vec3):
-        direction = (point - pig.position).normalized()
-        self.position += direction * self.speed * time.dt
-        self.look_at(point)
-        self.rotation_y += 180
-        if distance(self.position, point) < 0.5:
-            return "End"
-
-def pos_to_key(pos):
+def pos_to_key(pos: Vec3):
     return (int(pos.x), int(pos.y), int(pos.z))
 
 def makeHP():
@@ -114,6 +100,8 @@ def generate_world():
                         tex_i = 10
                     elif num <= ANDESITE_SPAWN_CHANCE + DIORITE_SPAWN_CHANCE + IRON_SPAWN_CHANCE + GOLDEN_SPAWN_CHANCE:
                         tex_i = 11
+                    elif num <= ANDESITE_SPAWN_CHANCE + DIORITE_SPAWN_CHANCE + IRON_SPAWN_CHANCE + GOLDEN_SPAWN_CHANCE + DIAMOND_SPAWN_CHANCE and y <= 8:
+                        tex_i = 16
                     else:
                         tex_i = 2
                 add_entity(tex_i, Vec3(x, -y, z), "cube")
@@ -136,6 +124,12 @@ def generate_tree(pos: Vec3, height: int):
     add_entity(9, (x-1, height-1, z), "cube")
     add_entity(9, (x, height-1, z+1), "cube")
     add_entity(9, (x, height-1, z-1), "cube")
+
+def generate_flowers():
+    for x in range(WORLD_SIZE[0]):
+        for z in range(WORLD_SIZE[2]):
+            if randint(1, 100) <= FLOWER_SPAWN_CHANCE and pos_to_key(Vec3(x, 1, z)) not in blocks_by_key:
+                blocks.append(Entity(model="cube", texture=b_textures[randint(13, 15)], position=(x, 1, z), scale=(1, 1, 0.001), collider="box"))
 
 def generate_trees():
     for x in range(WORLD_SIZE[0]):
@@ -184,8 +178,7 @@ def update_all_visibility():
         update_block_and_neighbors(k)
     for b in blocks:
         if b.enabled == True:
-            print(distance(player, b))
-            if abs(player.y-b.position.y) > 2:
+            if player.y-b.position.y > 2:
                 b.enabled = False
                 b.collider = None
                 b._visible = False
@@ -196,7 +189,6 @@ def update_render():
             b.enabled = False
             b.collider = None
             b._visible = False
-
 
 def build_block(tex_id):
     hit_info = raycast(camera.world_position, camera.forward, distance=5)
@@ -224,6 +216,21 @@ def destroy_block():
             del blocks_by_key[k]
         destroy(ent)
         update_block_and_neighbors(k)
+
+def sit_down():
+    global sitting
+    player.height = 1
+    player.position = (bench.X, bench.Y+0.2, bench.Z-0.4)
+    player.speed = 0
+    player.rotation = bench.rotation + Vec3(0, -90, 0)
+    sitting = True
+
+def sit_up():
+    global sitting
+    player.height = 1.5
+    player.position = (bench.X, bench.Y, bench.Z+1)
+    player.speed = BASIC_PLAYER_SPEED
+    sitting = False
 
 def update_sky():
     tick_ = tick % 2000
@@ -352,8 +359,13 @@ def input(key):
     if key == 'space':
         jumps += 1
         if jumps >= 10:
-            achievements["Jumper"] = True     
-
+            achievements["Jumper"] = True  
+    if key == "e":
+        if distance(player, bench) < 2 and sitting == False:
+            sit_down()
+        elif sitting == True:
+            sit_up()
+        
 ticsText = Text(text=' ', scale=2, position=(-0.75,0.4), origin=(0,0), color=color.hex("#000000"))
 posText = Text(text=' ', scale=2, position=(-0.675,0.34), origin=(0,0), color=color.hex("#000000"))
 ticsText.enabled = False
@@ -370,7 +382,7 @@ def update():
     tex_id = selected_item
     update_sky()
     update_sun()
-    
+
     if pig.move(target) == "End":
         target = Vec3(randint(0, WORLD_SIZE[0]), 1.4, randint(0, WORLD_SIZE[2]))
     selecter.position=inv_cells[selected_item-1].position
@@ -385,13 +397,17 @@ def update():
 
 generate_world()
 generate_trees()
+generate_flowers()
 update_all_visibility()
 # makeHP()
 create_inventory(cells_num)
 hide_inventory()
 
-pig = Pig(0.5, model="models/pig.obj", texture="textures/pig.png", collider="box", position=(1, 1.4, 1), scale = 0.4)
+pig = Pig(0.5, model="models/pig.obj", texture="models/pig.png", collider="box", position=(1, 0.5, 1), scale = 0.4)
 crafting_table = Block(tex_id=tex_id, model="models/craftingtable.obj", texture="textures/CraftingTable.png", position=(10, 1, 10), collider="box", scale=0.5)
+hand = Entity(parent=camera.ui, model="models/hand.obj", position=(0.45, -0.6, 0), texture="models/hand.png", scale = (0.2, 0.2, 0.2))
+hand.rotation = (45, -45, 45)
+bench = Entity(model="models/bench.obj", texture="models/bench.png", position=(5, 0.5, 5), scale = 1.5, rotation=(0, 90, 0), collider="mesh")
 
 player.position = (5,5,5)
 player.cursor.texture = "textures/Cross.png"
@@ -399,6 +415,7 @@ player.cursor.scale = 0.01
 player.cursor.color = color.white
 player.cursor.rotation_z = 0
 player.height = 1.5
+player.gravity = 0
 
 mouse.locked = False
 
